@@ -28,12 +28,12 @@ standalone_episode_regexs = [
   '(.*?)( \(([0-9]+)\))? - ([0-9]+)+x([0-9]+)(-[0-9]+[Xx]([0-9]+))?( - (.*))?',  # Newzbin style, no _UNPACK_
   '(.*?)( \(([0-9]+)\))?[Ss]([0-9]+)+[Ee]([0-9]+)(-[0-9]+[Xx]([0-9]+))?( - (.*))?'   # standard s00e00
   ]
-  
+
 season_regex = '.*?(?P<season>[0-9]+)$' # folder for a season
 
 just_episode_regexs = [
     '[eE](?P<ep>[0-9]{1,4})',				    # E04
-    '(?P<ep>[0-9]{1,4})[ȸ|ȭ]',
+    '(?P<ep>[0-9]{1,4})[회|화]',
     '(?P<ep>[0-9]{1,3})[\. -_]*of[\. -_]*[0-9]{1,3}',       # 01 of 08
     '^(?P<ep>[0-9]{1,3})[^0-9]',                           # 01 - Foo
     'e[a-z]*[ \.\-_]*(?P<ep>[0-9]{2,3})([^0-9c-uw-z%]|$)', # Blah Blah ep234
@@ -426,17 +426,20 @@ def Log(entry, filename='C:\\Users\\soju6\\AppData\\Local\\Plex Media Server\\Lo
   #            ['Ubuntu-10.04',      "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Logs/"],
   #            ['windows Vista/7/8', "C:\\Users\\Default\\AppData\\Local\\Plex Media Server\\Logs\\"],
   #            ['Qnap',              ""] ]
-  #try: 
-  with open(filename, 'a') as file:     #time now.strftime("%Y-%m-%d %H:%M") + " " + datetime.datetime.now() + " " + #doesn't work for timestamps
+  try: 
+    with open(filename, 'a') as file:     #time now.strftime("%Y-%m-%d %H:%M") + " " + datetime.datetime.now() + " " + #doesn't work for timestamps
     #for line in file:
     # if entry in line: break
     #else: ###gets there if "for" wasn't "break", used for unique lines in logging file
-    file.write( entry + "\r\n" ) #\r\n make it readable in notepad under windows directly print line + "\n" #for command line execution, output to terminal except: pass
+      file.write( entry + "\r\n" ) #\r\n make it readable in notepad under windows directly print line + "\n" #for command line execution, output to terminal except: pass
+  except: pass
 
 
 
 import sys
-    
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 if __name__ == '__main__':
   print "Hello, world!"
   path = sys.argv[1]

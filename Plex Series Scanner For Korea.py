@@ -2,6 +2,19 @@
 #
 # Copyright (c) 2010 Plex Development Team. All rights reserved.
 #
+#####################################################################################
+USING_DAUM_AGENT		= 0		# 다음 에이전트. 단일 시즌. 
+USING_DAUM_SERIES_AGENT		= 1		# 다음 시리즈 에이전트(wonipapa님). 시리즈 적용	
+KOR_AGENT			= USING_DAUM_AGENT
+USE_LOG				= False		# True, False
+LOGFILE				= 'Plex Media Scanner Custom.log' # 절대경로
+
+# 파일명의 회차와 다음의 회차가 다른 경우에는 파일명의 회차는 무시해야 날짜 기준으로 정상적으로 메타가 반영됨.
+# 그런 방송파일들
+EPISODE_NUMBER_IGNORE = ['한국기행']
+#####################################################################################
+
+
 import re, os, os.path
 import Media, VideoFiles, Stack, Utils
 from mp4file import mp4file, atomsearch
@@ -44,18 +57,21 @@ just_episode_regexs = [
     #'(?P<ep>[0-9]{1,4})',
   ]
 
+kor_season_regex = '(\s|시즌)(?P<season>[0-9]{1,2})\s[eE](?P<ep>[0-9]{1,4})'
+
 ends_with_number = '.*([0-9]{1,2})$'
 
 ends_with_episode = ['[ ]*[0-9]{1,2}x[0-9]{1,3}$', '[ ]*S[0-9]+E[0-9]+$']
 
 # Look for episodes.
 def Scan(path, files, mediaList, subdirs, language=None, root=None):
-  Log('== Scan')
+  Log('+++++++++++++++++++++ Scan')
   Log('path:%s' % path)
   Log('files:%s' % files)
   Log('mediaList:%s' % mediaList)
   Log('subdirs:%s' % subdirs)
   ### Root scan for OS information that i need to complete the Log function ###
+  """
   if path == "":
     Log("================================================================================")
     try:
@@ -67,14 +83,14 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
       Log("os.getcwd:    '%s'" % os.getcwd())       # Current dir: /volume1/homes/plex
       Log("root folder:  '%s'" % root if root is not None else "")
     except: pass
-  
+  """
 
   # Scan for video files.
   VideoFiles.Scan(path, files, mediaList, subdirs, root)
   
   # Take top two as show/season, but require at least the top one.
   paths = Utils.SplitPath(path)
-  Log('paths:%s' % paths)
+  Log('>> paths:%s' % paths)
   shouldStack = True
   
   if len(paths) == 1 and len(paths[0]) == 0:
@@ -272,6 +288,9 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
           if not year and cleanYear:
             year = cleanYear
           if cleanYear != None:
+	    #Log(cleanYear)
+	    #Log(file)
+
             file = file.replace(str(cleanYear), 'XXXX')
             
           # Minor cleaning on the file to avoid false matches on H.264, 720p, etc.
@@ -332,7 +351,7 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
 	      Log('44444 %s' % tv_show)
               break
               
-        if done == False:
+        if done == False and episode_ignore(show) == False:
           
           # OK, next let's see if we're dealing with something that looks like an episode.
           # Begin by cleaning the filename to remove garbage like "h.264" that could throw
@@ -359,18 +378,23 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
                 # See if we accidentally parsed the episode as season.
                 #if the_episode >= 100 and int(the_episode / 100) == the_season:
                 #  the_episode = the_episode % 100
+              else:
+	        if rx == just_episode_regexs[0] and KOR_AGENT == USING_DAUM_SERIES_AGENT:
+		  kor_match = re.search(kor_season_regex, file, re.IGNORECASE)  
+		  if kor_match:
+		    if the_episode == int(kor_match.group('ep')):
+		      the_season = int(kor_match.group('season'))
 
               # Prevent standalone eps matching the "XX of YY" regex from stacking.
-              if rx == just_episode_regexs[0]:
+              if rx == just_episode_regexs[2]:
                 shouldStack = False
-              
+
               tv_show = Media.Episode(show, the_season, the_episode, None, year)
               tv_show.parts.append(i)
               mediaList.append(tv_show)
               done = True
-	      Log('55555 %s' % tv_show)
-	      Log('55555 RE %s' % rx)
-
+              Log('55555 %s' % tv_show)
+              Log('55555 RE %s' % rx)
               break
 
         if done == False:
@@ -403,24 +427,27 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
           
         if done == False:
 	  try:
+	    Log('>>FAIL: %s' % file)
             print "Got nothing for:", file
 	  except Exception as e:
 	    print "XXXXX"
 	  #print "Got nothing for:", file
-
+  
+  #checkDaumMeta(mediaList)
   # Stack the results.
   if shouldStack:
     Stack.Scan(path, files, mediaList, subdirs)
   
+
 def find_data(atom, name):
   child = atomsearch.find_path(atom, name)
   data_atom = child.find('data')
   if data_atom and 'data' in data_atom.attrs:
     return data_atom.attrs['data']
 
-
 ### Log function ########################################################################################
-def Log(entry, filename='C:\\Users\\soju6\\AppData\\Local\\Plex Media Server\\Logs\\Plex Media Scanner Custom.log'): #need relative path
+def Log(entry, filename=LOGFILE): #need relative path
+  if USE_LOG == False: return
   #Logging = [ ['Synology',          "/volume1/Plex/Library/Application Support/Plex Media Server/Logs/"],
   #            ['Synology2',         "../../Plex/Library/Application Support/Plex Media Server/Logs/"],
   #            ['Ubuntu-10.04',      "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Logs/"],
@@ -433,6 +460,55 @@ def Log(entry, filename='C:\\Users\\soju6\\AppData\\Local\\Plex Media Server\\Lo
     #else: ###gets there if "for" wasn't "break", used for unique lines in logging file
       file.write( entry + "\r\n" ) #\r\n make it readable in notepad under windows directly print line + "\n" #for command line execution, output to terminal except: pass
   except: pass
+
+
+def episode_ignore(name):
+	#Log('EPISODE_IGNORE : %s' % name)
+	for n in EPISODE_NUMBER_IGNORE:
+		if name.find(n) != -1 or n.find(name) != -1:
+			return True
+	return False
+"""
+def checkDaumMeta(mediaList):
+	Log('checkDaumMeta:%s' % len(mediaList) )
+	try:
+		for tv_show in mediaList:
+			Log('show:%s' % tv_show.show )
+			Log('season:%s' % tv_show.season )
+			Log('episode:%s' % tv_show.episode )
+			Log('name:%s' % tv_show.name )
+			Log('year:%s' % tv_show.year )
+			for i in tv_show.parts:
+				Log('File:%s' % i)
+			return
+	except Exception as e:
+		Log(e)
+		pass
+
+import urllib, unicodedata
+def searchDaumMovieTVSeries(show):
+    DAUM_TV_SRCH   = "http://movie.daum.net/data/movie/search/v2/tv.json?size=20&start=1&searchText=%s"
+    media_name = show
+    Log('searchDaumMovieTVSeries:%s' % show)
+    media_name = unicodedata.normalize('NFKC', unicode(media_name)).strip()
+    data = JSON.ObjectFromURL(url=DAUM_TV_SRCH % (urllib.quote(media_name.encode('utf8'))))\
+    Log(data)
+    items = data['data']
+    for item in items:
+        year = str(item['prodYear'])
+        id = str(item['tvProgramId'])
+        title = String.DecodeHTMLEntities(String.StripTags(item['titleKo'])).strip()
+        if year == media.year:
+            score = 95
+        elif len(items) == 1:
+            score = 80
+        else:
+            score = 10
+        Log('ID=%s, media_name=%s, title=%s, year=%s, score=%d' %(id, media_name, title, year, score))
+        #results.Append(MetadataSearchResult(id=id, name=title, year=year, score=score, lang=lang))
+"""
+
+
 
 
 

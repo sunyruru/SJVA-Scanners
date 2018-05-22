@@ -6,12 +6,11 @@
 USING_DAUM_AGENT		= 0		# 다음 에이전트. 단일 시즌. 
 USING_DAUM_SERIES_AGENT		= 1		# 다음 시리즈 에이전트(wonipapa님). 시리즈 적용	
 KOR_AGENT			= USING_DAUM_AGENT
-USE_LOG				= False		# True, False
-LOGFILE				= 'Plex Media Scanner Custom.log' # 절대경로
+USE_LOG				= False
+LOGFILE				= 'Plex Media Scanner Custom.log'
 
-# 파일명의 회차와 다음의 회차가 다른 경우에는 파일명의 회차는 무시해야 날짜 기준으로 정상적으로 메타가 반영됨.
-# 그런 방송파일들
-EPISODE_NUMBER_IGNORE = ['한국기행']
+# 파일명의 회차와 다음의 회차가 잘못되어 있는 경우 파일명의 회차는 무시할 방송들. 이 경우 날짜 기준으로 메타가 작성되어 정확함.
+EPISODE_NUMBER_IGNORE = ['한국기행', '세계테마기행', '추적 60분', '다큐멘터리 3일', '다큐 오늘', '인간극장', 'KBS 뉴스9', 'SBS 8']
 #####################################################################################
 
 
@@ -48,7 +47,8 @@ just_episode_regexs = [
     '[eE](?P<ep>[0-9]{1,4})',				    # E04
     '(?P<ep>[0-9]{1,4})[회|화]',
     '(?P<ep>[0-9]{1,3})[\. -_]*of[\. -_]*[0-9]{1,3}',       # 01 of 08
-    '^(?P<ep>[0-9]{1,3})[^0-9]',                           # 01 - Foo
+#    '^(?P<ep>[0-9]{1,3})[^0-9]',                           # 01 - Foo 4시 사건반장
+    '^(?P<ep>[0-9]{2,3})[^0-9]',                           # 01 - Foo
     'e[a-z]*[ \.\-_]*(?P<ep>[0-9]{2,3})([^0-9c-uw-z%]|$)', # Blah Blah ep234
     '.*?[ \.\-_](?P<ep>[0-9]{2,3})[^0-9c-uw-z%]+',         # Flah - 04 - Blah
     '.*?[ \.\-_](?P<ep>[0-9]{2,3})$',                      # Flah - 04
@@ -66,7 +66,7 @@ ends_with_episode = ['[ ]*[0-9]{1,2}x[0-9]{1,3}$', '[ ]*S[0-9]+E[0-9]+$']
 # Look for episodes.
 def Scan(path, files, mediaList, subdirs, language=None, root=None):
   Log('+++++++++++++++++++++ Scan')
-  Log('path:%s' % path)
+  Log('path:%s' % path.encode('euc-kr'))
   Log('files:%s' % files)
   Log('mediaList:%s' % mediaList)
   Log('subdirs:%s' % subdirs)
@@ -90,14 +90,15 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
   
   # Take top two as show/season, but require at least the top one.
   paths = Utils.SplitPath(path)
-  Log('>> paths:%s' % paths)
+  if len(paths) != 0:
+	  Log('>> SCAN PATH : %s' % paths[0].encode('euc-kr'))
   shouldStack = True
   
   if len(paths) == 1 and len(paths[0]) == 0:
   
     # Run the select regexps we allow at the top level.
     for i in files:
-      print i
+      Log('\nFILE1 : %s' % i.encode('euc-kr'))
       try:
         file = os.path.basename(i)
         for rx in episode_regexps[0:-1]:
@@ -182,6 +183,7 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
         show = re.sub(rx, '', show)
 
       for i in files:
+        Log('\nFILE2 : %s' % i.encode('euc-kr'))
         done = False
         file = os.path.basename(i)
         (file, ext) = os.path.splitext(file)
@@ -278,7 +280,10 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
             mediaList.append(tv_show)
 
             done = True
-	    Log('22222 %s' % tv_show)
+	    #다큐멘터리 3일.E534.180513.60분의 승부 - 공영홈쇼핑 72시간.720p-NEXT
+	    #Log('22222 %s' % tv_show)
+	    Log('ADD(2) DATE : SHOW-%s / DATE-%s' % (show.encode('euc-kr'), tv_show.released_at))
+	    Log('MATCH : %s' % rx)
             break
 
         if done == False:
@@ -349,6 +354,7 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
               
               done = True
 	      Log('44444 %s' % tv_show)
+	      Log('ADD(4) : SHOW-%s / SEASON-%s / EPISODE-%s' % (show.encode('euc-kr'), the_season, episode))
               break
               
         if done == False and episode_ignore(show) == False:
@@ -358,7 +364,7 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
           # things off.
           #
           (file, fileYear) = VideoFiles.CleanName(file)
-	  Log('FILE : %s' % file)
+	  Log('PARSING FILENAME : %s' % file.encode('euc-kr'))
 	  #Log('FILEYEAR : %s' % fileYear)
 
           # if don't have a good year from before (when checking the parent folders) AND we just got a good year, use it.
@@ -393,8 +399,8 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
               tv_show.parts.append(i)
               mediaList.append(tv_show)
               done = True
-              Log('55555 %s' % tv_show)
-              Log('55555 RE %s' % rx)
+              Log('ADD(5) : SHOW-%s / SEASON-%s / EPISODE-%s' % (show.encode('euc-kr'), the_season, the_episode))
+              Log('MATCH : %s' % rx)
               break
 
         if done == False:
@@ -421,13 +427,13 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
               mediaList.append(tv_show)
 
               done = True
-	      Log('66666 %s' % tv_show)
+	      Log('ADD(6): SHOW-%s YEAR-%s' % (show.encode('euc-kr'), year))
 	      Log('tv_show.released_at %s' % tv_show.released_at)
               break
           
         if done == False:
 	  try:
-	    Log('>>FAIL: %s' % file)
+	    Log('>>FAIL: %s' % file.encode('euc-kr'))
             print "Got nothing for:", file
 	  except Exception as e:
 	    print "XXXXX"

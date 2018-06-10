@@ -7,10 +7,10 @@ USING_DAUM_AGENT		= 0		# 다음 에이전트. 단일 시즌.
 USING_DAUM_SERIES_AGENT		= 1		# 다음 시리즈 에이전트(wonipapa님). 시리즈 적용	
 KOR_AGENT			= USING_DAUM_AGENT
 USE_LOG				= False
-LOGFILE				= 'Plex Media Scanner Custom.log'
+LOGFILE				= 'C:\\Users\\soju6\\AppData\\Local\\Plex Media Server\\Logs\\Plex Media Scanner Custom.log'
 
 # 파일명의 회차와 다음의 회차가 잘못되어 있는 경우 파일명의 회차는 무시할 방송들. 이 경우 날짜 기준으로 메타가 작성되어 정확함.
-EPISODE_NUMBER_IGNORE = ['한국기행', '세계테마기행', '추적 60분', '다큐멘터리 3일', '다큐 오늘', '인간극장', 'KBS 뉴스9', 'SBS 8']
+EPISODE_NUMBER_IGNORE = ['한국기행', '세계테마기행', '추적 60분', '다큐멘터리 3일', '다큐 오늘', '인간극장', 'KBS 뉴스9', 'SBS 8', '최고의 요리비결', '지식채널e']
 #####################################################################################
 
 
@@ -45,7 +45,7 @@ season_regex = '.*?(?P<season>[0-9]+)$' # folder for a season
 
 just_episode_regexs = [
     '[eE](?P<ep>[0-9]{1,4})',				    # E04
-    '(?P<ep>[0-9]{1,4})[회|화]',
+    u'(?P<ep>[0-9]{1,4})[회|화]',
     '(?P<ep>[0-9]{1,3})[\. -_]*of[\. -_]*[0-9]{1,3}',       # 01 of 08
 #    '^(?P<ep>[0-9]{1,3})[^0-9]',                           # 01 - Foo 4시 사건반장
     '^(?P<ep>[0-9]{2,3})[^0-9]',                           # 01 - Foo
@@ -183,7 +183,10 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
         show = re.sub(rx, '', show)
 
       for i in files:
-        Log('\nFILE2 : %s' % i.encode('euc-kr'))
+        try:
+          Log('\nFILE2 : %s' % i.encode('euc-kr'))
+	except:
+	  Log('\nFILE2 : %s' % i)
         done = False
         file = os.path.basename(i)
         (file, ext) = os.path.splitext(file)

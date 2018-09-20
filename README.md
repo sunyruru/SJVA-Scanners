@@ -9,7 +9,7 @@
 3. 기존에 등록되어 있는 라이브러리는 모두 다시 스캔해야 합니다. (메타데이터 새로 고침)
 
 ### 추가 설정
-- wonipapa님의 [다음 시리즈 에이전트](https://github.com/wonipapa/DaumMovieTVSeries.bundle)를 사용하시는 경우 8라인 ```KOR_AGENT = USING_DAUM_SERIES_AGENT``` 로 변경.
+- ~~wonipapa님의 [다음 시리즈 에이전트](https://github.com/wonipapa/DaumMovieTVSeries.bundle)를 사용하시는 경우 8라인 ```KOR_AGENT = USING_DAUM_SERIES_AGENT``` 로 변경.~~
 - 로그파일을 보시려면 ```USE_LOG = True``` 로 변경하시고 ```LOGFILE```을 절대경로로 변경.
 
 
@@ -24,11 +24,18 @@
 
 
 ### ChangeLog
-##### 2018-09-20
+##### 2018-09-21
 - [다음 에이전트](https://github.com/soju6jan/DaumMovie.bundle) 연동
+  + 다음에 에피소드 정보가 없을 경우 에피소드 회차가 있더라도 날짜로 먼저 인식
+  + TODO
+    + 1일 2회 이상 방송시 합본처리된 파일 에이전트와 정확히 매치되도록..
+    + 파일명에 에피소드 번호와 날짜가 있지만 다음과 정보가 일치하지 않을 경우..
+- 다운로드 전용폴더용
+  - Plex Series Scanner For Korea Only DownloadFolder.py
+  - [설명](https://blog.naver.com/cybersol/221263109180)
 
 ##### 0.1.5 (2018-04-25)
-- 시즌제 대응
-  + wonipapa님 에이전트를 사용하시는 경우 S2를 붙여야 하나, 파일명 수정없이 E03앞에 시즌2, 혹은 숫자로 끝나는 경우 시즌으로 인식합니다.
-- 회차를 무시해야하는 경우
-  + 일부 릴은 회차정보가 잘못 되어 있습니다. 이런 방송은 날짜로 매칭하는게 더 좋기 때문에 회차정보를 무시하는게 좋습니다. 무시 할 방송은 ```EPISODE_NUMBER_IGCNORE = ['한국기행', '인간극장']``` 형식으로 방송을 추가해주면 됩니다.
+- ~~시즌제 대응~~
+  + ~~wonipapa님 에이전트를 사용하시는 경우 S2를 붙여야 하나, 파일명 수정없이 E03앞에 시즌2, 혹은 숫자로 끝나는 경우 시즌으로 인식합니다.~~
+- ~~회차를 무시해야하는 경우~~
+  + ~~일부 릴은 회차정보가 잘못 되어 있습니다. 이런 방송은 날짜로 매칭하는게 더 좋기 때문에 회차정보를 무시하는게 좋습니다. 무시 할 방송은 ```EPISODE_NUMBER_IGCNORE = ['한국기행', '인간극장']``` 형식으로 방송을 추가해주면 됩니다.~~

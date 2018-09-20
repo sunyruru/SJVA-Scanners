@@ -1,5 +1,5 @@
 # Plex Series Scanner For Korea
-국내 방송용 Plex 파일 스캐너입니다. NEXT 릴 기준으로 작성되어 있습니다.
+국내 방송용 Plex 파일 스캐너입니다.
 
 ### 사용법
 1. Plex Media Server\Scanners\Series 폴더를 만들고 Plex Series Scanner For Korea.py 파일을 복사
@@ -24,6 +24,9 @@
 
 
 ### ChangeLog
+##### 2018-09-20
+- [다음 에이전트](https://github.com/soju6jan/DaumMovie.bundle) 연동
+
 ##### 0.1.5 (2018-04-25)
 - 시즌제 대응
   + wonipapa님 에이전트를 사용하시는 경우 S2를 붙여야 하나, 파일명 수정없이 E03앞에 시즌2, 혹은 숫자로 끝나는 경우 시즌으로 인식합니다.

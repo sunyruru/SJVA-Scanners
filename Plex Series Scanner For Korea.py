@@ -368,10 +368,10 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
                     raise
               except:
                 break
-	      str = match.group('year')
-              year = int(str[0:2]) + 2000
-              month = int(str[2:4])
-              day = int(str[4:6])
+	      str2 = match.group('year')
+              year = int(str2[0:2]) + 2000
+              month = int(str2[2:4])
+              day = int(str2[4:6])
 
               # Use the year as the season.
               tv_show = Media.Episode(show, year, None, None, None)
@@ -446,10 +446,10 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
                     raise
               except:
                 break
-	      str = match.group('year')
-              year = int(str[0:2]) + 2000
-              month = int(str[2:4])
-              day = int(str[4:6])
+	      str2 = match.group('year')
+              year = int(str2[0:2]) + 2000
+              month = int(str2[2:4])
+              day = int(str2[4:6])
 
               # Use the year as the season.
               tv_show = Media.Episode(show, year, None, None, None)
@@ -488,7 +488,6 @@ def find_data(atom, name):
 def Log(s): #need relative path
   if USE_LOG == False: return
   try: 
-    str = time.strftime('%Y%m%d', time.localtime())
     s = '[%s] %s' % (time.strftime('%H:%M:%S', time.localtime()), s)
     #with io.open(filename, 'a', encoding='utf-8') as file:
     #  file.write( s + "\r\n" )

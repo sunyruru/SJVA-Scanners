@@ -3,25 +3,17 @@
 # Copyright (c) 2010 Plex Development Team. All rights reserved.
 #
 #####################################################################################
-USING_DAUM_AGENT		= 0		# 다음 에이전트. 단일 시즌. 
-USING_DAUM_SERIES_AGENT		= 1		# 다음 시리즈 에이전트(wonipapa님). 시리즈 적용	
-KOR_AGENT			= USING_DAUM_AGENT
-USE_LOG				= True		# True, False
-LOGFILE				= 'C:\\Users\\soju6\\AppData\\Local\\Plex Media Server\\Logs\\Plex Media Scanner Custom DownloadFolder.log' # 절대경로
-
-# 파일명의 회차와 다음의 회차가 다른 경우에는 파일명의 회차는 무시해야 날짜 기준으로 정상적으로 메타가 반영됨.
-# 그런 방송파일들
-EPISODE_NUMBER_IGNORE = ['한국기행']
+USE_SEASON_REGEX		= False		#
+USE_LOG				= True
 #####################################################################################
 
 
 import re, os, os.path
 import Media, VideoFiles, Stack, Utils
 from mp4file import mp4file, atomsearch
+import time, json, traceback, io
 
 episode_regexps = [
-    '(?P<show>.*?)[eE](?P<ep>[0-9]{1,4})',				    # E04
-
     '(?P<show>.*?)[sS](?P<season>[0-9]+)[\._ ]*[eE](?P<ep>[0-9]+)[\._ ]*([- ]?[sS](?P<secondSeason>[0-9]+))?([- ]?[Ee+](?P<secondEp>[0-9]+))?', # S03E04-E05
     '(?P<show>.*?)[sS](?P<season>[0-9]{2})[\._\- ]+(?P<ep>[0-9]+)',                                                            # S03-03
     '(?P<show>.*?)([^0-9]|^)(?P<season>(19[3-9][0-9]|20[0-5][0-9]|[0-9]{1,2}))[Xx](?P<ep>[0-9]+)((-[0-9]+)?[Xx](?P<secondEp>[0-9]+))?',  # 3x03, 3x03-3x04, 3x03x04
@@ -36,7 +28,7 @@ date_regexps = [
   ]
 
 date_regexps2 = [
-    '(?P<show>.*?)(?P<year>[0-9]{6})'
+    '(?P<year>[0-9]{6})'
   ]
 
 standalone_episode_regexs = [
@@ -47,10 +39,11 @@ standalone_episode_regexs = [
 season_regex = '.*?(?P<season>[0-9]+)$' # folder for a season
 
 just_episode_regexs = [
-    '(?P<show>.*?)[eE](?P<ep>[0-9]{1,4})',				    # E04
-    '(?P<ep>[0-9]{1,4})[회|화]',
+    '[eE](?P<ep>[0-9]{1,4})',				    # E04
+    u'(?P<ep>[0-9]{1,4})[회|화]',
     '(?P<ep>[0-9]{1,3})[\. -_]*of[\. -_]*[0-9]{1,3}',       # 01 of 08
-    '^(?P<ep>[0-9]{1,3})[^0-9]',                           # 01 - Foo
+#    '^(?P<ep>[0-9]{1,3})[^0-9]',                           # 01 - Foo 4시 사건반장
+    '^(?P<ep>[0-9]{2,3})[^0-9]',                           # 01 - Foo
     'e[a-z]*[ \.\-_]*(?P<ep>[0-9]{2,3})([^0-9c-uw-z%]|$)', # Blah Blah ep234
     '.*?[ \.\-_](?P<ep>[0-9]{2,3})[^0-9c-uw-z%]+',         # Flah - 04 - Blah
     '.*?[ \.\-_](?P<ep>[0-9]{2,3})$',                      # Flah - 04
@@ -68,10 +61,14 @@ ends_with_episode = ['[ ]*[0-9]{1,2}x[0-9]{1,3}$', '[ ]*S[0-9]+E[0-9]+$']
 # Look for episodes.
 def Scan(path, files, mediaList, subdirs, language=None, root=None):
   Log('+++++++++++++++++++++ Scan')
-  Log('path:%s' % path)
+  Log('path:%s' % path.encode('euc-kr'))
   Log('files:%s' % files)
+  for file in files:
+	Log(file.encode('euc-kr'))
   Log('mediaList:%s' % mediaList)
   Log('subdirs:%s' % subdirs)
+  for subdir in subdirs:
+	Log(subdir.encode('euc-kr'))
   ### Root scan for OS information that i need to complete the Log function ###
   """
   if path == "":
@@ -92,77 +89,40 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
   
   # Take top two as show/season, but require at least the top one.
   paths = Utils.SplitPath(path)
-  Log('>> paths:%s' % paths)
+  if len(paths) != 0:
+	  Log('>> SCAN PATH : %s' % paths[0].encode('euc-kr'))
   shouldStack = True
-  Log('ZZZZZZZZZZZ %s' % len(paths) )
-  Log('ZZZZZZZZZZZ %s' % len(paths[0]) )  
-
-
-
-  #if len(paths) == 1 and len(paths[0]) == 0:
-  if True:
-
+  
+  if len(paths) == 1 and len(paths[0]) == 0:
+  
     # Run the select regexps we allow at the top level.
     for i in files:
-      Log('\nFILE : %s' % i)
-      tempDone = False
+      Log('\nFILE1 : %s' % i.encode('euc-kr'))
       try:
         file = os.path.basename(i)
         for rx in episode_regexps[0:-1]:
           match = re.search(rx, file, re.IGNORECASE)
-	  #Log(rx)
           if match:
-	    Log('MATCH : %s' % rx)
+
             # Extract data.
-            show = match.group('show').replace('.', '') if match.groupdict().has_key('show') else ''
-	    Log('SHOW %s' % show)
-            #season = match.group('season')
-	    season = 1
-            #if season.lower() == 'sp':
-            #  season = 0
+            show = match.group('show') if match.groupdict().has_key('show') else ''
+            season = match.group('season')
+            if season.lower() == 'sp':
+              season = 0
             episode = int(match.group('ep'))
-            #endEpisode = episode
-	    endEpisode = episode
-            #if match.groupdict().has_key('secondEp') and match.group('secondEp'):
-            #  endEpisode = int(match.group('secondEp'))
+            endEpisode = episode
+            if match.groupdict().has_key('secondEp') and match.group('secondEp'):
+              endEpisode = int(match.group('secondEp'))
 
             # Clean title.
             name, year = VideoFiles.CleanName(show)
-	    Log('NAME : %s' % name)
-	    Log('EPISODE : %s' % episode)
-	    Log('ENDEPISODE : %s' % endEpisode)
-
             if len(name) > 0:
               for ep in range(episode, endEpisode+1):
                 tv_show = Media.Episode(name, season, ep, '', year)
                 tv_show.display_offset = (ep-episode)*100/(endEpisode-episode+1)
                 tv_show.parts.append(i)
                 mediaList.append(tv_show)
-		Log('APPEND : %s' % tv_show)
-		tempDone = True
-		break
-	Log('TEEEEEEEEEEEEEE %s' % tempDone)
-	Log(tempDone)
-	if tempDone == False:
-	  Log('Flase %s' % file)
-	  for rx in date_regexps2:
-	      match = re.search(rx, file)
-	      if match:
-  	        str = match.group('year')
-	        year = int(str[0:2]) + 2000
-	        month = int(str[2:4])
-	        day = int(str[4:6])
-		show = match.group('show').replace('.', '') if match.groupdict().has_key('show') else ''
-	        tv_show = Media.Episode(show, year, None, None, None)
-	        tv_show.released_at = '%d-%02d-%02d' % (year, month, day)
-	        tv_show.parts.append(i)
-	        mediaList.append(tv_show)
-	        done = True
-	        Log('00000 %s' % tv_show)
-	        Log('tv_show.released_at %s' % tv_show.released_at)
-	        break
       except Exception, e:
-        Log(e)
         pass
   
   elif len(paths) > 0 and len(paths[0]) > 0:
@@ -222,10 +182,14 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
         show = re.sub(rx, '', show)
 
       for i in files:
+        try:
+          Log('FILE2 : %s' % i.encode('euc-kr'))
+	except:
+	  Log('FILE2 : %s' % i)
         done = False
         file = os.path.basename(i)
         (file, ext) = os.path.splitext(file)
-        
+        """
         if ext.lower() in ['.mp4', '.m4v', '.mov']:
           m4season = m4ep = m4year = 0
           m4show = title = ''
@@ -293,7 +257,8 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
 
           except:
             pass
-        
+        """
+
         # Check for date-based regexps first.
         for rx in date_regexps:
           match = re.search(rx, file)
@@ -318,7 +283,8 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
             mediaList.append(tv_show)
 
             done = True
-	    Log('22222 %s' % tv_show)
+	    Log('ADD(2) DATE : SHOW-%s / DATE-%s' % (show.encode('euc-kr'), tv_show.released_at))
+	    Log('MATCH : %s' % rx)
             break
 
         if done == False:
@@ -388,17 +354,48 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
                 mediaList.append(tv_show)
               
               done = True
-	      Log('44444 %s' % tv_show)
+	      Log('ADD(4) : SHOW-%s / SEASON-%s / EPISODE-%s' % (show.encode('euc-kr'), the_season, episode))
               break
-              
-        if done == False and episode_ignore(show) == False:
+
+        if done == False and episode_ignore(show):
+	  # 180303 
+          for rx in date_regexps2:
+            match = re.search(rx, file)
+            if match:
+             # Make sure there's not a stronger season/ep match for the same file.
+              try:
+                for r in episode_regexps[:-1] + standalone_episode_regexs:
+                  if re.search(r, file):
+                    raise
+              except:
+                break
+	      str2 = match.group('year')
+              year = int(str2[0:2]) + 2000
+              month = int(str2[2:4])
+              day = int(str2[4:6])
+
+              # Use the year as the season.
+              tv_show = Media.Episode(show, year, None, None, None)
+              tv_show.released_at = '%d-%02d-%02d' % (year, month, day)
+              tv_show.parts.append(i)
+              mediaList.append(tv_show)
+
+              done = True
+	      Log('ADD(5): SHOW-%s YEAR-%s' % (show.encode('euc-kr'), year))
+	      Log('tv_show.released_at %s' % tv_show.released_at)
+              break
+	      
+        if done == False:
           
           # OK, next let's see if we're dealing with something that looks like an episode.
           # Begin by cleaning the filename to remove garbage like "h.264" that could throw
           # things off.
           #
           (file, fileYear) = VideoFiles.CleanName(file)
-	  Log('FILE : %s' % file)
+	  try:
+ 	    Log('PARSING FILENAME : %s' % file.encode('euc-kr'))
+	  except:
+	    Log('PARSING FILENAME ERROR')
 	  #Log('FILEYEAR : %s' % fileYear)
 
           # if don't have a good year from before (when checking the parent folders) AND we just got a good year, use it.
@@ -407,20 +404,8 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
 
           for rx in just_episode_regexs:
             episode_match = re.search(rx, file, re.IGNORECASE)
-	    Log(rx)
-	    Log('MATCH:%s' % episode_match)
             if episode_match is not None:
-	      Log('11111 %s' % episode_match.group('ep'))
-	      Log('33333 %s' % episode_match.group('show'))
-	      try:
-                the_episode = int(episode_match.group('ep'))
-              except Exception as e:
-	        Log('Exception %s' % e)
-              Log('xxxxxxx')
-	      Log('2222 %s' % the_episode)
-	      if episode_match.group('show') is not None: 
-	        show = episode_match.group('show')
-		Log(show)
+              the_episode = int(episode_match.group('ep'))
               the_season = 1
               
               # Now look for a season.
@@ -431,7 +416,7 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
                 #if the_episode >= 100 and int(the_episode / 100) == the_season:
                 #  the_episode = the_episode % 100
               else:
-	        if rx == just_episode_regexs[0] and KOR_AGENT == USING_DAUM_SERIES_AGENT:
+	        if rx == just_episode_regexs[0] and USE_SEASON_REGEX:
 		  kor_match = re.search(kor_season_regex, file, re.IGNORECASE)  
 		  if kor_match:
 		    if the_episode == int(kor_match.group('ep')):
@@ -445,9 +430,10 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
               tv_show.parts.append(i)
               mediaList.append(tv_show)
               done = True
-              Log('55555 %s' % tv_show)
-              Log('55555 RE %s' % rx)
+              Log('ADD(6) : SHOW-%s / SEASON-%s / EPISODE-%s' % (show.encode('euc-kr'), the_season, the_episode))
+              Log('MATCH : %s' % rx)
               break
+
 
         if done == False:
 	  # 180303 
@@ -461,10 +447,10 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
                     raise
               except:
                 break
-	      str = match.group('year')
-              year = int(str[0:2]) + 2000
-              month = int(str[2:4])
-              day = int(str[4:6])
+	      str2 = match.group('year')
+              year = int(str2[0:2]) + 2000
+              month = int(str2[2:4])
+              day = int(str2[4:6])
 
               # Use the year as the season.
               tv_show = Media.Episode(show, year, None, None, None)
@@ -473,13 +459,15 @@ def Scan(path, files, mediaList, subdirs, language=None, root=None):
               mediaList.append(tv_show)
 
               done = True
-	      Log('66666 %s' % tv_show)
+	      Log('ADD(7): SHOW-%s YEAR-%s' % (show.encode('euc-kr'), year))
 	      Log('tv_show.released_at %s' % tv_show.released_at)
               break
+	      
+        
           
         if done == False:
 	  try:
-	    Log('>>FAIL: %s' % file)
+	    Log('>>FAIL: %s' % file.encode('euc-kr'))
             print "Got nothing for:", file
 	  except Exception as e:
 	    print "XXXXX"
@@ -498,69 +486,35 @@ def find_data(atom, name):
     return data_atom.attrs['data']
 
 ### Log function ########################################################################################
-def Log(entry, filename=LOGFILE): #need relative path
+def Log(s): #need relative path
   if USE_LOG == False: return
-  #Logging = [ ['Synology',          "/volume1/Plex/Library/Application Support/Plex Media Server/Logs/"],
-  #            ['Synology2',         "../../Plex/Library/Application Support/Plex Media Server/Logs/"],
-  #            ['Ubuntu-10.04',      "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Logs/"],
-  #            ['windows Vista/7/8', "C:\\Users\\Default\\AppData\\Local\\Plex Media Server\\Logs\\"],
-  #            ['Qnap',              ""] ]
   try: 
-    with open(filename, 'a') as file:     #time now.strftime("%Y-%m-%d %H:%M") + " " + datetime.datetime.now() + " " + #doesn't work for timestamps
-    #for line in file:
-    # if entry in line: break
-    #else: ###gets there if "for" wasn't "break", used for unique lines in logging file
-      file.write( entry + "\r\n" ) #\r\n make it readable in notepad under windows directly print line + "\n" #for command line execution, output to terminal except: pass
+    s = '[%s] %s' % (time.strftime('%H:%M:%S', time.localtime()), s)
+    #with io.open(filename, 'a', encoding='utf-8') as file:
+    #  file.write( s + "\r\n" )
+    filename = os.path.join(os.path.dirname( os.path.abspath( __file__ ) ), '../../', 'Logs', 'Plex Media Scanner Custom.log')
+    with open(filename, 'a') as file:
+      file.write( s + "\r\n" )
   except: pass
 
 
 def episode_ignore(name):
-	#Log('EPISODE_IGNORE : %s' % name)
-	for n in EPISODE_NUMBER_IGNORE:
-		if name.find(n) != -1 or n.find(name) != -1:
-			return True
-	return False
-"""
-def checkDaumMeta(mediaList):
-	Log('checkDaumMeta:%s' % len(mediaList) )
 	try:
-		for tv_show in mediaList:
-			Log('show:%s' % tv_show.show )
-			Log('season:%s' % tv_show.season )
-			Log('episode:%s' % tv_show.episode )
-			Log('name:%s' % tv_show.name )
-			Log('year:%s' % tv_show.year )
-			for i in tv_show.parts:
-				Log('File:%s' % i)
-			return
-	except Exception as e:
-		Log(e)
-		pass
-
-import urllib, unicodedata
-def searchDaumMovieTVSeries(show):
-    DAUM_TV_SRCH   = "http://movie.daum.net/data/movie/search/v2/tv.json?size=20&start=1&searchText=%s"
-    media_name = show
-    Log('searchDaumMovieTVSeries:%s' % show)
-    media_name = unicodedata.normalize('NFKC', unicode(media_name)).strip()
-    data = JSON.ObjectFromURL(url=DAUM_TV_SRCH % (urllib.quote(media_name.encode('utf8'))))\
-    Log(data)
-    items = data['data']
-    for item in items:
-        year = str(item['prodYear'])
-        id = str(item['tvProgramId'])
-        title = String.DecodeHTMLEntities(String.StripTags(item['titleKo'])).strip()
-        if year == media.year:
-            score = 95
-        elif len(items) == 1:
-            score = 80
-        else:
-            score = 10
-        Log('ID=%s, media_name=%s, title=%s, year=%s, score=%d' %(id, media_name, title, year, score))
-        #results.Append(MetadataSearchResult(id=id, name=title, year=year, score=score, lang=lang))
-"""
-
-
+		Log('EPISODE_IGNORE : %s' % name.encode('euc-kr'))
+		#data_json_filename = os.path.join(os.path.dirname( os.path.abspath( __file__ ) ), '../../', 'Plug-in Support', 'Data', 'com.plexapp.agents.daum_tv_series', 'data.json')
+		data_json_filename = os.path.join(os.path.dirname( os.path.abspath( __file__ ) ), '../../', 'Plug-in Support', 'Data', 'com.plexapp.agents.daum_movie', 'data.json')
+		#Log('data_json: %s' % data_json_filename)
+		if os.path.isfile(data_json_filename) :
+			with io.open(data_json_filename, 'r', encoding='utf-8') as data_file:    
+				data = json.load(data_file)
+				data = data['no_episode_data']
+			if name.decode('utf-8') in data:
+				Log('EPISODE_IGNORE MATCH 1: %s' % name.encode('euc-kr'))			
+				return True
+		return False
+	except:
+		Log(traceback.format_exc())
+		return False
 
 
 
